@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en-CA">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>HopeMission LRF Application</title>
+  <style>
+    :root {
+      --bg: #0c1222;
+      --panel: #141d33;
+      --panel-2: #1a2744;
+      --line: rgba(255,255,255,0.09);
+      --text: #f4f7ff;
+      --muted: #9aa8c4;
+      --primary: #4f7cff;
+      --primary-d: #3b5fd4;
+      --success: #22c55e;
+      --warning: #f59e0b;
+      --danger: #ef4444;
+      --accent: #f97316;
+      --radius: 16px;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: "Segoe UI", system-ui, sans-serif;
+      background: radial-gradient(ellipse at top, rgba(79,124,255,0.12), transparent 50%), var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+      min-height: 100vh;
+    }
+    button, input, select, textarea { font: inherit; }
+    select { color-scheme: light; cursor: pointer; }
+    select option { background: #fff; color: #1e293b; padding: 0.4rem; }
+    .wrap { width: min(1100px, 94%); margin: 0 auto; padding: 1rem 0 3rem; }
+    .top {
+      display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
+      gap: 1rem; margin-bottom: 1.25rem; padding-bottom: 1rem; border-bottom: 1px solid var(--line);
+    }
+    .brand h1 { font-size: 1.35rem; letter-spacing: -0.02em; }
+    .brand p { color: var(--muted); font-size: 0.85rem; }
+    .api-pill {
+      display: inline-flex; align-items: center; gap: 0.4rem;
+      padding: 0.35rem 0.75rem; border-radius: 999px; font-size: 0.78rem; font-weight: 600;
+      border: 1px solid var(--line);
+    }
+    .api-pill::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
+    .api-pill--ok { border-color: rgba(34,197,94,0.4); color: #86efac; }
+    .api-pill--ok::before { background: var(--success); }
+    .api-pill--err { border-color: rgba(239,68,68,0.4); color: #fca5a5; }
+    .api-pill--err::before { background: var(--danger); }
+    .iface-bar {
+      display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 1rem;
+    }
+    .iface-btn {
+      padding: 0.55rem 1rem; border-radius: 10px; border: 1px solid var(--line);
+      background: transparent; color: var(--muted); cursor: pointer; font-weight: 600; font-size: 0.88rem;
+    }
+    .iface-btn.active { background: var(--primary); border-color: var(--primary); color: #fff; }
+    .iface-btn:hover:not(.active) { background: rgba(255,255,255,0.05); color: var(--text); }
+    .demo-bar {
+      display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: center;
+      background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius);
+      padding: 0.75rem 1rem; margin-bottom: 1rem; font-size: 0.88rem;
+    }
+    .demo-bar label { color: var(--muted); }
+    .demo-bar select {
+      border: 1px solid var(--line); background: var(--panel-2); color: var(--text);
+      border-radius: 8px; padding: 0.45rem 0.65rem; min-width: 200px;
+    }
+    .view { display: none; }
+    .view.active { display: block; }
+    .grid-2 { display: grid; gap: 1rem; }
+    @media (min-width: 800px) { .grid-2 { grid-template-columns: 1fr 1fr; } }
+    .card {
+      background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius);
+      padding: 1.1rem; margin-bottom: 1rem;
+    }
+    .card h2 { font-size: 1rem; margin-bottom: 0.35rem; }
+    .card > p.sub { color: var(--muted); font-size: 0.85rem; margin-bottom: 1rem; }
+    .field { display: grid; gap: 0.3rem; margin-bottom: 0.75rem; }
+    .field label { font-size: 0.8rem; color: var(--muted); font-weight: 600; }
+    .field input, .field select, .field textarea {
+      border: 1px solid var(--line); background: var(--panel-2); color: var(--text);
+      border-radius: 10px; padding: 0.65rem 0.8rem; width: 100%; min-height: 2.6rem;
+    }
+    .field textarea { min-height: 4rem; resize: vertical; }
+    .row-2 { display: grid; gap: 0.75rem; }
+    @media (min-width: 500px) { .row-2 { grid-template-columns: 1fr 1fr; } }
+    .btn {
+      border: none; border-radius: 10px; padding: 0.7rem 1.1rem; font-weight: 700;
+      cursor: pointer; background: var(--primary); color: #fff;
+    }
+    .btn:hover { background: var(--primary-d); }
+    .btn--ghost { background: transparent; border: 1px solid var(--line); color: var(--text); }
+    .btn--ok { background: var(--success); }
+    .btn--no { background: var(--danger); }
+    .btn--sm { padding: 0.4rem 0.75rem; font-size: 0.82rem; }
+    .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 0.65rem; margin-bottom: 1rem; }
+    .stat { background: var(--panel-2); border-radius: 12px; padding: 0.75rem; border: 1px solid var(--line); }
+    .stat span { font-size: 0.72rem; color: var(--muted); display: block; }
+    .stat strong { font-size: 1.25rem; }
+    .list { list-style: none; display: grid; gap: 0.65rem; }
+    .item {
+      display: flex; gap: 0.75rem; align-items: flex-start;
+      background: var(--panel-2); border: 1px solid var(--line); border-radius: 12px; padding: 0.85rem;
+    }
+    .av {
+      width: 42px; height: 42px; border-radius: 10px; background: rgba(79,124,255,0.25);
+      display: grid; place-items: center; font-weight: 800; font-size: 0.85rem; flex-shrink: 0;
+    }
+    .item-body { flex: 1; min-width: 0; }
+    .item-top { display: flex; justify-content: space-between; gap: 0.5rem; flex-wrap: wrap; }
+    .item-top strong { font-size: 0.95rem; }
+    .meta { color: var(--muted); font-size: 0.8rem; margin-top: 0.25rem; }
+    .text-muted { color: var(--muted); font-weight: 500; }
+    .badge {
+      font-size: 0.7rem; font-weight: 700; padding: 0.2rem 0.55rem; border-radius: 999px;
+      text-transform: capitalize; white-space: nowrap;
+    }
+    .badge--pending { background: rgba(245,158,11,0.2); color: #fcd34d; }
+    .badge--approved, .badge--taken { background: rgba(34,197,94,0.2); color: #86efac; }
+    .badge--rejected { background: rgba(239,68,68,0.2); color: #fca5a5; }
+    .actions { display: flex; flex-direction: column; gap: 0.35rem; flex-shrink: 0; }
+    .empty { text-align: center; padding: 2rem 1rem; color: var(--muted); }
+    .toast {
+      position: fixed; bottom: 1.25rem; right: 1.25rem; max-width: 360px;
+      padding: 0.85rem 1rem; border-radius: 12px; background: var(--panel-2);
+      border: 1px solid var(--line); box-shadow: 0 12px 40px rgba(0,0,0,0.4);
+      opacity: 0; transform: translateY(8px); transition: 0.25s; z-index: 200; pointer-events: none;
+    }
+    .toast.show { opacity: 1; transform: translateY(0); }
+    .toast--success { border-color: rgba(34,197,94,0.5); }
+    .toast--error { border-color: rgba(239,68,68,0.5); }
+    .hint { font-size: 0.78rem; color: var(--muted); margin-top: 0.25rem; }
+    .dist-list { display: grid; gap: 0.5rem; margin-bottom: 0.5rem; }
+    .dist-row {
+      display: grid; grid-template-columns: 1fr 5.5rem auto; gap: 0.45rem; align-items: center;
+    }
+    .dist-row select, .dist-row input { min-height: 2.4rem; padding: 0.5rem 0.65rem; }
+    .dist-row button {
+      border: 1px solid var(--line); background: transparent; color: var(--muted);
+      border-radius: 8px; width: 2.2rem; height: 2.2rem; cursor: pointer; font-size: 1.1rem; line-height: 1;
+    }
+    .dist-row button:hover { color: var(--danger); border-color: rgba(239,68,68,0.4); }
+    .total-hours-row {
+      display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;
+      padding: 0.65rem 0.75rem; background: var(--panel-2); border-radius: 10px; border: 1px solid var(--line);
+      margin-bottom: 0.75rem;
+    }
+    .total-hours-row input { width: 5.5rem; min-height: 2.4rem; }
+    .total-hours-row strong { color: var(--accent); }
+    .admin-filters {
+      display: flex; flex-wrap: wrap; gap: 0.65rem; align-items: center;
+      margin-bottom: 1rem; padding: 0.75rem; background: var(--panel-2);
+      border-radius: 12px; border: 1px solid var(--line);
+    }
+    .admin-filters label { font-size: 0.78rem; color: var(--muted); font-weight: 600; }
+    .admin-filters select {
+      border: 1px solid var(--line); background: var(--panel); color: var(--text);
+      border-radius: 8px; padding: 0.5rem 0.65rem; min-width: 160px;
+      color-scheme: light; min-height: 2.4rem;
+    }
+    .filter-count { font-size: 0.82rem; color: var(--muted); margin-left: auto; }
+    footer { text-align: center; color: var(--muted); font-size: 0.8rem; margin-top: 2rem; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header class="top">
+      <div class="brand">
+        <h1>HopeMission LRF Application</h1>
+        <p>Canadian NGO · Leave Request Form workflow · Employee · Manager · Admin/HR</p>
+      </div>
+      <span id="api-status" class="api-pill">Checking backend…</span>
+    </header>
+
+    <nav class="iface-bar" aria-label="Application interface">
+      <button type="button" class="iface-btn active" data-interface="employee">Employee</button>
+      <button type="button" class="iface-btn" data-interface="manager">Manager</button>
+      <button type="button" class="iface-btn" data-interface="admin">Admin / HR</button>
+    </nav>
+
+    <div class="demo-bar">
+      <label for="demo-user">Demo sign-in as</label>
+      <select id="demo-user" aria-label="Select demo user"></select>
+      <button type="button" class="btn btn--ghost btn--sm" id="btn-reseed">Reload demo data</button>
+    </div>
+
+    <!-- EMPLOYEE -->
+    <section id="view-employee" class="view active" aria-label="Employee interface">
+      <div class="grid-2">
+        <div class="card">
+          <h2>Submit leave request</h2>
+          <p class="sub">Logged in as <strong id="emp-user-label">—</strong></p>
+          <form id="form-employee">
+            <div class="field">
+              <label for="emp-leave-dates">Dates of intended leave</label>
+              <textarea id="emp-leave-dates" required rows="4" placeholder="List each date you plan to be away (one per line)&#10;e.g. 2026-06-03&#10;2026-06-04&#10;2026-06-05"></textarea>
+              <p class="hint">One date per line (YYYY-MM-DD). You can also separate dates with commas.</p>
+            </div>
+            <div class="field">
+              <label for="emp-pay-period">Pay period leave falls under</label>
+              <select id="emp-pay-period" required></select>
+              <p class="hint">HopeMission pay periods run from the <strong>21st</strong> of each month through the <strong>20th</strong> of the next month.</p>
+            </div>
+            <div class="field">
+              <label>Hours by leave type</label>
+              <p class="hint" style="margin-bottom:0.5rem;">How your total absence hours are distributed (e.g. 8h Sick, 8h Personal, 24h Without Pay).</p>
+              <div id="hour-dist-list" class="dist-list"></div>
+              <button type="button" class="btn btn--ghost btn--sm" id="btn-add-dist">+ Add leave type line</button>
+            </div>
+            <div class="total-hours-row">
+              <label for="emp-total-hours">Total hours</label>
+              <input id="emp-total-hours" type="number" min="0.5" step="0.5" required />
+              <span class="hint" style="margin:0;">Sum of lines: <strong id="dist-sum">0</strong>h</span>
+            </div>
+            <div class="field">
+              <label for="emp-reason">Reason / notes</label>
+              <textarea id="emp-reason" required placeholder="Brief reason for leave…"></textarea>
+            </div>
+            <label style="display:flex;gap:0.5rem;align-items:center;font-size:0.85rem;color:var(--muted);margin-bottom:0.75rem;">
+              <input type="checkbox" id="emp-retro" /> Already taken (retroactive — no approval needed)
+            </label>
+            <button type="submit" class="btn">Submit LRF</button>
+          </form>
+        </div>
+        <div class="card">
+          <h2>My leave requests</h2>
+          <p class="sub">Pulled from backend API</p>
+          <ul id="emp-list" class="list"></ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- MANAGER -->
+    <section id="view-manager" class="view" aria-label="Manager interface">
+      <div class="card">
+        <h2>Approval queue</h2>
+        <p class="sub">Pending requests for team members reporting to <strong id="mgr-user-label">—</strong></p>
+        <ul id="mgr-list" class="list"></ul>
+      </div>
+    </section>
+
+    <!-- ADMIN / HR -->
+    <section id="view-admin" class="view" aria-label="Admin and HR interface">
+      <div class="stats" id="admin-stats"></div>
+      <div class="card">
+        <h2>All leave requests</h2>
+        <p class="sub">Organisation-wide view for HR and administration</p>
+        <div class="admin-filters" role="search" aria-label="Filter leave requests">
+          <div>
+            <label for="admin-filter-dept">Department</label><br />
+            <select id="admin-filter-dept"><option value="">All departments</option></select>
+          </div>
+          <div>
+            <label for="admin-filter-cc">Cost centre</label><br />
+            <select id="admin-filter-cc"><option value="">All cost centres</option></select>
+          </div>
+          <div>
+            <label for="admin-filter-approver">Approved by</label><br />
+            <select id="admin-filter-approver"><option value="">All approvers</option></select>
+          </div>
+          <button type="button" class="btn btn--ghost btn--sm" id="admin-clear-filters">Clear filters</button>
+          <span class="filter-count" id="admin-filter-count"></span>
+        </div>
+        <ul id="admin-list" class="list"></ul>
+      </div>
+      <div class="card">
+        <h2>Employee directory</h2>
+        <p class="sub">Employee ID = first 3 letters of last name + number (001, 002, …)</p>
+        <ul id="admin-employees" class="list"></ul>
+      </div>
+      <div class="card">
+        <h2>Payroll snapshot (CAD)</h2>
+        <p class="sub">Approved and taken leave hours this period</p>
+        <div id="admin-payroll"></div>
+      </div>
+    </section>
+
+    <footer>
+      <p>&copy; <span id="footer-year"></span> HopeMission · Demo data seeded on server · <span id="footer-api"></span></p>
+    </footer>
+  </div>
+
+  <div id="toast" class="toast" role="status"></div>
+  <script>window.HOPEMISSION_API = window.HOPEMISSION_API || "";</script>
+  <script src="app.js"></script>
+</body>
+</html>
