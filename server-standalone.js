@@ -87,7 +87,7 @@ function readStore() {
     parsed.requests = parsed.requests || [];
     parsed.staffImports = parsed.staffImports || [];
     const portalUser = parsed.employees.find((e) => canAccessPortal(e));
-    parsed.session = parsed.session || { empId: portalUser?.id, interface: "manager" };
+    parsed.session = { empId: null, interface: "employee" };
     return parsed;
   } catch {
     return applySeed();

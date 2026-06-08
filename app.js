@@ -238,11 +238,8 @@ async function loadState() {
   return data;
 }
 
-async function saveSession(empId, iface) {
-  state.session = await api("/api/session", {
-    method: "PUT",
-    body: JSON.stringify({ empId, interface: iface }),
-  });
+function saveSession(empId, iface) {
+  state.session = { empId, interface: iface };
 }
 
 // ── Screen management ──────────────────────────────────────────
@@ -336,8 +333,6 @@ function closeSidebarMobile() {
 }
 
 function logout() {
-  api("/api/session", { method: "PUT", body: JSON.stringify({ empId: null, interface: "employee" }) })
-    .catch(() => {});
   state.session = { empId: null, interface: "employee" };
   currentSection = null;
   fillSignInUserSelect();
@@ -658,7 +653,7 @@ function fillPayPeriodFilterSelect() {}
 function wireSignIn() {
   document.getElementById("btn-ms-signin")?.addEventListener("click", handleMsSignIn);
 
-  document.getElementById("signin-user")?.addEventListener("change", async (e) => {
+  document.getElementById("signin-user")?.addEventListener("change", (e) => {
     const empId = e.target.value;
     if (!empId) return;
     const emp = state.employees.find((x) => x.id === empId);
@@ -674,12 +669,8 @@ function wireSignIn() {
     }
     denied?.classList.remove("show");
     const iface = defaultInterfaceForRole(emp.systemRole);
-    try {
-      await saveSession(emp.id, iface);
-      showAppScreen(emp);
-    } catch (err) {
-      if (denied) { denied.textContent = err.message; denied.classList.add("show"); }
-    }
+    saveSession(emp.id, iface);
+    showAppScreen(emp);
   });
 }
 
@@ -708,20 +699,14 @@ async function init() {
 
   try {
     await loadState();
+    state.session = { empId: null, interface: "employee" };
     fillSignInUserSelect();
     fillPayPeriodSelect();
     if (window.ManusonicUI) window.ManusonicUI.fillHrFilterOptions(state);
-
-    const emp = currentEmployee();
-    if (emp && canAccessPortal(emp)) {
-      showAppScreen(emp);
-    } else {
-      showSignInScreen();
-    }
   } catch (err) {
-    showSignInScreen();
     showToast("Unable to load leave data. Ensure the server is running.", "error");
   }
+  showSignInScreen();
 }
 
 document.addEventListener("DOMContentLoaded", () => init());
