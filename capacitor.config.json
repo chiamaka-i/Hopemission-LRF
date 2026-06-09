@@ -1,0 +1,9 @@
+{
+  "appId": "ca.hopemission.lrf",
+  "appName": "Hope Mission LRF",
+  "webDir": "www",
+  "server": {
+    "url": "https://hopemission-lrf-blessingizejiobi-ai-foundryproduction.up.railway.app",
+    "cleartext": false
+  }
+}

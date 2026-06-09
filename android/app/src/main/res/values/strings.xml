@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Hope Mission LRF</string>
+    <string name="title_activity_main">Hope Mission LRF</string>
+    <string name="package_name">ca.hopemission.lrf</string>
+    <string name="custom_url_scheme">ca.hopemission.lrf</string>
+</resources>
