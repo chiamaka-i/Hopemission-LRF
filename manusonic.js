@@ -64,6 +64,68 @@
     return html;
   }
 
+  function formatOriginalSubmission(r) {
+    const sub = r.originalSubmission || r;
+    const fieldRows = [
+      ["Name", sub.empName],
+      ["Employee ID", sub.empId],
+      ["Pay Period", sub.payPeriodLabel],
+      ["Year", sub.yearOfLeave],
+      ["Days", sub.dayLabels || (sub.days != null ? String(sub.days) : null)],
+      ["Shift Length", sub.shiftLength],
+    ];
+    (sub.hourDistribution || []).filter((h) => h.hours > 0).forEach((h) => {
+      fieldRows.push([h.type, `${h.hours}h`]);
+    });
+    fieldRows.push(["Total Hours", sub.totalHours != null ? `${sub.totalHours}h` : null]);
+    if (sub.additionalNotes) fieldRows.push(["Notes", sub.additionalNotes]);
+
+    const tableRows = fieldRows
+      .filter(([, v]) => v != null && String(v) !== "")
+      .map(([f, v]) => `<tr><th style="text-align:left;padding:0.2rem 0.5rem;white-space:nowrap;font-weight:600">${esc(f)}</th><td style="padding:0.2rem 0.5rem">${esc(String(v))}</td></tr>`)
+      .join("");
+
+    let html = `<table class="data-table" style="margin:0.35rem 0"><tbody>${tableRows}</tbody></table>`;
+
+    if (r.correctionsMade && r.auditTrail?.length) {
+      r.auditTrail.forEach((audit, i) => {
+        const orig = audit.originalValues || {};
+        const corr = audit.correctedValues || {};
+        const compareFields = [
+          ["Name", orig.empName, corr.empName],
+          ["Employee ID", orig.empId, corr.empId],
+          ["Pay Period", orig.payPeriodLabel, corr.payPeriodLabel],
+          ["Year", orig.yearOfLeave, corr.yearOfLeave],
+          ["Days", orig.dayLabels, corr.dayLabels],
+          ["Shift Length", orig.shiftLength, corr.shiftLength],
+          ["Total Hours",
+            orig.totalHours != null ? `${orig.totalHours}h` : null,
+            corr.totalHours != null ? `${corr.totalHours}h` : null],
+        ];
+        LEAVE_CATS.forEach((cat) => {
+          const o = (orig.hourDistribution || []).find((h) => h.type === cat)?.hours || 0;
+          const c = (corr.hourDistribution || []).find((h) => h.type === cat)?.hours || 0;
+          if (o !== c) compareFields.push([cat, o ? `${o}h` : "—", c ? `${c}h` : "—"]);
+        });
+        const changedRows = compareFields
+          .filter(([, o, c]) => String(o ?? "") !== String(c ?? ""))
+          .map(([f, o, c]) => `<tr><td style="padding:0.2rem 0.5rem">${esc(f)}</td><td style="padding:0.2rem 0.5rem">${esc(String(o ?? "—"))}</td><td style="padding:0.2rem 0.5rem">${esc(String(c ?? "—"))}</td></tr>`)
+          .join("");
+        html += `<h4 style="margin:0.6rem 0 0.2rem;font-size:0.8rem;color:var(--muted)">Correction ${i + 1}</h4>`;
+        if (changedRows) {
+          html += `<table class="data-table" style="margin:0.2rem 0"><thead><tr><th>Field</th><th>Original</th><th>Corrected</th></tr></thead><tbody>${changedRows}</tbody></table>`;
+        }
+        html += `<div class="meta" style="margin-top:0.3rem">
+          <strong>Reason:</strong> ${esc(audit.correctionReason || "—")}<br>
+          <strong>Note:</strong> ${esc(audit.correctionNote || "—")}<br>
+          <strong>Corrected by:</strong> ${esc(audit.adminName || "—")}<br>
+          <strong>At:</strong> ${esc(audit.timestamp ? new Date(audit.timestamp).toLocaleString() : "—")}
+        </div>`;
+      });
+    }
+    return html;
+  }
+
   function pendingCard(r, state, { showPost = false } = {}) {
     const cats = (r.hourDistribution || []).filter((h) => h.hours > 0)
       .map((h) => `${h.hours}h ${h.type}`).join(" · ");
@@ -78,11 +140,12 @@
         <div class="meta"><strong>Shift:</strong> ${esc(r.shiftLength)} · <strong>Days:</strong> ${esc(r.dayLabels || r.days)}</div>
         <div class="meta"><strong>Categories:</strong> ${esc(cats)} · <strong>Total:</strong> ${r.totalHours}h</div>
         <div class="meta"><strong>Pay period:</strong> ${esc(r.payPeriodLabel)} · <strong>Year:</strong> ${esc(r.yearOfLeave)}</div>
+        <div class="meta"><strong>Submitted:</strong> ${esc(fmtTimestamp(r.submittedAt || r.originalSubmittedAt))}</div>
         <div class="meta"><strong>Approved by:</strong> ${esc(r.approvedByName || "—")}</div>
         <div class="meta"><strong>Verified by:</strong> ${esc(r.verifiedByName || "—")} ${r.verifiedAt ? `(${esc(new Date(r.verifiedAt).toLocaleString())})` : ""}</div>
         ${r.additionalNotes ? `<div class="meta"><strong>Notes:</strong> ${esc(r.additionalNotes)}</div>` : ""}
         ${r.auditTrail?.length ? `<details class="audit-details"><summary>Correction history (${r.auditTrail.length})</summary><pre class="audit-pre">${esc(JSON.stringify(r.auditTrail, null, 2))}</pre></details>` : ""}
-        ${r.originalSubmission ? `<details class="audit-details"><summary>Original Submission</summary><pre class="audit-pre">${esc(JSON.stringify(r.originalSubmission, null, 2))}</pre></details>` : ""}
+        ${r.originalSubmission ? `<details class="audit-details"><summary>Original Submission${r.correctionsMade ? " · Corrections Made" : ""}</summary>${formatOriginalSubmission(r)}</details>` : ""}
       </div>
       ${actions ? `<div class="actions">${actions}</div>` : ""}
     </li>`;
@@ -95,7 +158,7 @@
           <span class="badge badge--pending">Needs Review</span></div>
         ${r.supervisorSubmissionFlag ? `<div class="attention-banner">Supervisor or manager submission detected — please verify whether this is their own leave or a proxy submission on behalf of an absent staff member.</div>` : ""}
         ${markersHtml(r.reviewMarkers)}
-        <div class="meta">Form ID: ${esc(r.formResponseId || "—")} · Submitted: ${esc(r.originalSubmittedAt || r.submittedAt)}</div>
+        <div class="meta">Form ID: ${esc(r.formResponseId || "—")} · Submitted: ${esc(fmtTimestamp(r.originalSubmittedAt || r.submittedAt))}</div>
         <div class="meta">${esc(r.payPeriodLabel)} · ${r.totalHours}h · ${esc(r.shiftLength)}</div>
         <div class="meta">${(r.hourDistribution || []).map((h) => `${h.hours}h ${h.type}`).join(" · ")}</div>
       </div>
@@ -326,7 +389,7 @@
         <select id="vf-reason">${(state.correctionReasons || []).map((x) => `<option value="${esc(x)}">${esc(x)}</option>`).join("")}</select></div>
       <div class="field" id="vf-note-wrap" style="display:none"><label>Correction note</label><textarea id="vf-note"></textarea></div>
       <div class="field" id="vf-supervisor-wrap" style="display:none"><label>Submitted by (supervisor name)</label><input id="vf-supervisor" /></div>
-      <details><summary>Original Submission (read-only)</summary><pre class="audit-pre">${esc(JSON.stringify(r.originalSubmission || r, null, 2))}</pre></details>
+      <details><summary>Original Submission (read-only)</summary>${formatOriginalSubmission(r)}</details>
       <div class="modal-actions">
         <button type="button" class="btn" id="vf-save">Save &amp; Verify</button>
         <button type="button" class="btn btn--ghost" id="vf-cancel">Cancel</button>
@@ -549,6 +612,30 @@
         showToast(err.message, "error");
       }
       e.target.value = "";
+    });
+
+    document.getElementById("btn-hr-apply")?.addEventListener("click", () => {
+      renderHrRequestsTable(state);
+    });
+    document.getElementById("btn-hr-clear")?.addEventListener("click", () => {
+      hrFilters = { payPeriod: "", year: "", department: "", costCentre: "", employmentType: "", category: "", status: "" };
+      ["hr-f-payperiod", "hr-f-year", "hr-f-dept", "hr-f-cc", "hr-f-emptype", "hr-f-cat", "hr-f-status"].forEach((id) => {
+        const el = document.getElementById(id);
+        if (el) el.value = "";
+      });
+      renderHrRequestsTable(state);
+    });
+
+    document.getElementById("btn-snap-apply")?.addEventListener("click", () => {
+      renderHrSnapshot(state);
+    });
+    document.getElementById("btn-snap-clear")?.addEventListener("click", () => {
+      snapshotFilters = { payPeriod: "", year: "", department: "", costCentre: "", employmentType: "" };
+      ["snap-f-payperiod", "snap-f-year", "snap-f-dept", "snap-f-cc", "snap-f-emptype"].forEach((id) => {
+        const el = document.getElementById(id);
+        if (el) el.value = "";
+      });
+      renderHrSnapshot(state);
     });
   }
 

@@ -351,7 +351,7 @@
         </button>
         <p class="signin-divider">or continue as</p>
         <div class="signin-row">
-          <label for="signin-user">Sign in as</label>
+          <label for="signin-user">Demo sign in</label>
           <select id="signin-user" aria-label="Select your name to sign in"></select>
         </div>
         <div id="access-denied" class="access-denied" role="alert"></div>
@@ -366,7 +366,7 @@
   <!-- ═══════════════════════════════════════════════════
        APP SCREEN
   ═══════════════════════════════════════════════════ -->
-  <div id="screen-app" class="screen" hidden>
+  <div id="screen-app" class="screen">
 
     <!-- SIDEBAR -->
     <aside class="sidebar" id="sidebar">
@@ -400,10 +400,13 @@
           <div class="card">
             <form id="form-employee">
               <div class="field">
-                <label for="emp-leave-dates">Dates of intended leave</label>
-                <textarea id="emp-leave-dates" required rows="4"
-                  placeholder="List each date you plan to be away (one per line)&#10;e.g. 2026-06-03&#10;2026-06-04&#10;2026-06-05"></textarea>
-                <p class="hint">One date per line (YYYY-MM-DD). You can also separate dates with commas.</p>
+                <label>Dates of intended leave</label>
+                <div style="display:flex;gap:0.5rem;align-items:center">
+                  <input type="date" id="emp-date-pick" style="flex:1;min-width:0;width:auto;" />
+                  <button type="button" class="btn btn--ghost btn--sm" id="btn-add-date">Add date</button>
+                </div>
+                <ul id="emp-dates-list" style="list-style:none;display:flex;flex-wrap:wrap;gap:0.4rem;margin-top:0.5rem;padding:0;min-height:1.5rem;"></ul>
+                <p class="hint">Select a date and click Add date. Dates outside the selected pay period will be highlighted.</p>
               </div>
               <div class="field">
                 <label for="emp-pay-period">Pay period leave falls under</label>
@@ -518,6 +521,10 @@
                   <option value="posted">Posted</option>
                 </select>
               </div>
+              <div style="display:flex;gap:0.4rem;align-items:flex-end">
+                <button type="button" class="btn btn--sm" id="btn-hr-apply">Apply Filters</button>
+                <button type="button" class="btn btn--ghost btn--sm" id="btn-hr-clear">Clear Filters</button>
+              </div>
             </div>
             <div id="hr-requests-table"></div>
           </div>
@@ -536,6 +543,10 @@
               <div><label for="snap-f-dept">Department</label><select id="snap-f-dept"></select></div>
               <div><label for="snap-f-cc">Cost centre</label><select id="snap-f-cc"><option value="">All cost centres</option></select></div>
               <div><label for="snap-f-emptype">Employment type</label><select id="snap-f-emptype"></select></div>
+              <div style="display:flex;gap:0.4rem;align-items:flex-end">
+                <button type="button" class="btn btn--sm" id="btn-snap-apply">Apply Filters</button>
+                <button type="button" class="btn btn--ghost btn--sm" id="btn-snap-clear">Clear Filters</button>
+              </div>
             </div>
             <div id="hr-snapshot-body"></div>
           </div>

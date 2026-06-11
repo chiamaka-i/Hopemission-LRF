@@ -31,6 +31,7 @@ let state = {
 };
 let apiConnected = false;
 let currentSection = null;
+let pickedDates = [];
 
 // kept for compatibility — elements no longer exist but logic is harmless
 let adminFilters = { department: "", costCentre: "", approvedBy: "", payPeriod: "" };
@@ -88,6 +89,14 @@ function showToast(msg, type = "info") {
   el.className = `toast show toast--${type}`;
   clearTimeout(showToast._t);
   showToast._t = setTimeout(() => el.classList.remove("show"), 4500);
+}
+
+function fmtTimestamp(iso) {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  if (isNaN(d)) return "—";
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+    + " · " + d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true });
 }
 
 function canAccessPortal(emp) {
@@ -204,6 +213,7 @@ function requestCard(r, actionsHtml = "") {
       </div>
       <div class="meta"><strong>Dept:</strong> ${esc(r.department)} · <strong>CC:</strong> ${esc(r.costCentre)}</div>
       <div class="meta"><strong>Pay period:</strong> ${esc(payPeriod)}</div>
+      <div class="meta"><strong>Submitted:</strong> ${esc(fmtTimestamp(r.submittedAt))}</div>
       <div class="meta"><strong>Shift length:</strong> ${esc(shiftLength)}</div>
       <div class="meta"><strong>Dates:</strong> ${esc(formatLeaveDates(r))}</div>
       <div class="meta"><strong>Hours:</strong> ${hours}h total — ${esc(formatDistribution(r))}</div>
@@ -231,31 +241,36 @@ async function loadState() {
   const health = await api("/api/health");
   apiConnected = !!health.ok;
   const data = await api("/api/state");
-  state = { ...state, ...data };
+  Object.assign(state, data);
   if (!state.leaveTypes?.length && state.leaveCategories?.length) {
     state.leaveTypes = state.leaveCategories;
   }
   return data;
 }
 
-function saveSession(empId, iface) {
+async function saveSession(empId, iface) {
   state.session = { empId, interface: iface };
+  try {
+    await api("/api/session", { method: "PUT", body: JSON.stringify({ empId, interface: iface }) });
+  } catch (_) {}
 }
 
 // ── Screen management ──────────────────────────────────────────
 function showSignInScreen() {
   const si = document.getElementById("screen-signin");
   const app = document.getElementById("screen-app");
-  if (si) { si.hidden = false; si.classList.add("active"); }
-  if (app) { app.hidden = true; app.classList.remove("active"); }
+  si?.classList.add("active");
+  app?.classList.remove("active");
   document.getElementById("access-denied")?.classList.remove("show");
+  state.session = { empId: null, interface: "employee" };
+  api("/api/session", { method: "PUT", body: JSON.stringify({ empId: null, interface: "employee" }) }).catch(() => {});
 }
 
 function showAppScreen(emp) {
   const si = document.getElementById("screen-signin");
   const app = document.getElementById("screen-app");
-  if (si) { si.hidden = true; si.classList.remove("active"); }
-  if (app) { app.hidden = false; app.classList.add("active"); }
+  si?.classList.remove("active");
+  app?.classList.add("active");
   buildSidebar(emp);
   const navItems = SECTION_NAV[emp.systemRole] || SECTION_NAV.manager;
   navigate(navItems[0].id);
@@ -334,6 +349,7 @@ function closeSidebarMobile() {
 
 function logout() {
   state.session = { empId: null, interface: "employee" };
+  api("/api/session", { method: "PUT", body: JSON.stringify({ empId: null, interface: "employee" }) }).catch(() => {});
   currentSection = null;
   fillSignInUserSelect();
   showSignInScreen();
@@ -353,7 +369,7 @@ function fillSignInUserSelect() {
     `<option value="${esc(e.id)}">${esc(e.id)} — ${esc(e.name)} (directory only)</option>`
   ).join("");
   sel.innerHTML =
-    `<option value="">— Select your name —</option>` +
+    `<option value="">select your name</option>` +
     (portalHtml ? `<optgroup label="Portal access">${portalHtml}</optgroup>` : "") +
     (dirHtml ? `<optgroup label="Directory only — cannot sign in">${dirHtml}</optgroup>` : "");
 }
@@ -366,6 +382,42 @@ function fillPayPeriodSelect() {
   sel.innerHTML = periods.map((p) =>
     `<option value="${esc(p.value)}" data-start="${esc(p.start)}" data-end="${esc(p.end)}" data-label="${esc(p.label)}"${p.value === current.value ? " selected" : ""}>${esc(p.label)}</option>`
   ).join("");
+  syncDatePickerBounds();
+}
+
+function syncDatePickerBounds() {
+  const paySel = document.getElementById("emp-pay-period");
+  const picker = document.getElementById("emp-date-pick");
+  if (!paySel || !picker) return;
+  const opt = paySel.selectedOptions[0];
+  picker.min = opt?.dataset.start || "";
+  picker.max = opt?.dataset.end || "";
+}
+
+function renderDateChips() {
+  const list = document.getElementById("emp-dates-list");
+  if (!list) return;
+  if (!pickedDates.length) {
+    list.innerHTML = '<li style="color:var(--muted);font-size:0.8rem;">No dates added yet.</li>';
+    return;
+  }
+  const paySel = document.getElementById("emp-pay-period");
+  const opt = paySel?.selectedOptions[0];
+  const periodStart = opt?.dataset.start || "";
+  const periodEnd = opt?.dataset.end || "";
+  list.innerHTML = [...pickedDates].sort().map((d) => {
+    const outside = periodStart && periodEnd && (d < periodStart || d > periodEnd);
+    return `<li style="display:inline-flex;align-items:center;gap:0.3rem;background:var(--panel-2);border:1px solid ${outside ? "var(--warning)" : "var(--line)"};border-radius:8px;padding:0.2rem 0.4rem 0.2rem 0.6rem;font-size:0.82rem;">
+      ${esc(d)}${outside ? `<span style="font-size:0.72rem;color:var(--warning);margin-left:0.15rem;">outside selected pay period</span>` : ""}
+      <button type="button" data-remove="${esc(d)}" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:1.1rem;line-height:1;padding:0 0.1rem;" aria-label="Remove ${esc(d)}">×</button>
+    </li>`;
+  }).join("");
+  list.querySelectorAll("[data-remove]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      pickedDates = pickedDates.filter((d) => d !== btn.dataset.remove);
+      renderDateChips();
+    });
+  });
 }
 
 // ── Distribution rows ──────────────────────────────────────────
@@ -567,7 +619,7 @@ async function submitEmployeeForm(e) {
   e.preventDefault();
   const emp = currentEmployee();
   if (!emp) return showToast("No employee selected.", "error");
-  const { valid: leaveDates, bad } = parseLeaveDates(document.getElementById("emp-leave-dates")?.value);
+  const leaveDates = [...pickedDates].sort();
   const paySel = document.getElementById("emp-pay-period");
   const shiftLength = document.getElementById("emp-shift-length")?.value || "";
   const reason = document.getElementById("emp-reason")?.value.trim() || "";
@@ -575,7 +627,6 @@ async function submitEmployeeForm(e) {
   const hourDistribution = readHourDistribution();
   const totalHours = parseFloat(document.getElementById("emp-total-hours")?.value, 10);
   const distSum = hourDistribution.reduce((s, x) => s + x.hours, 0);
-  if (bad.length) return showToast(`Invalid date(s): ${bad.join(", ")}`, "error");
   if (!leaveDates.length) return showToast("Add at least one intended leave date.", "error");
   if (!paySel?.value) return showToast("Select a pay period.", "error");
   if (!state.shiftLengths.includes(shiftLength) && !["8 Hours", "10 Hours", "12 Hours"].includes(shiftLength)) {
@@ -600,6 +651,15 @@ async function submitEmployeeForm(e) {
     end: paySel.selectedOptions[0]?.dataset.end,
     label: paySel.selectedOptions[0]?.dataset.label || paySel.selectedOptions[0]?.textContent,
   };
+  if (payPeriod.start && payPeriod.end) {
+    const outside = leaveDates.filter((d) => d < payPeriod.start || d > payPeriod.end);
+    if (outside.length) {
+      return showToast(
+        `Date(s) ${outside.join(", ")} fall outside the selected pay period (${payPeriod.label}). Please remove them and submit a separate leave request under the pay period those dates fall in. A leave that spans two pay periods must be split into one request per pay period.`,
+        "error"
+      );
+    }
+  }
   const startDate = leaveDates[0];
   const endDate = leaveDates[leaveDates.length - 1];
   const days = countWeekdaysFromDates(leaveDates);
@@ -619,6 +679,10 @@ async function submitEmployeeForm(e) {
     renderAll();
     const form = document.getElementById("form-employee");
     form?.reset();
+    pickedDates = [];
+    renderDateChips();
+    const picker = document.getElementById("emp-date-pick");
+    if (picker) picker.value = "";
     const totalEl = document.getElementById("emp-total-hours");
     if (totalEl) delete totalEl.dataset.manual;
     initDistributionRows();
@@ -653,7 +717,7 @@ function fillPayPeriodFilterSelect() {}
 function wireSignIn() {
   document.getElementById("btn-ms-signin")?.addEventListener("click", handleMsSignIn);
 
-  document.getElementById("signin-user")?.addEventListener("change", (e) => {
+  document.getElementById("signin-user")?.addEventListener("change", async (e) => {
     const empId = e.target.value;
     if (!empId) return;
     const emp = state.employees.find((x) => x.id === empId);
@@ -669,7 +733,7 @@ function wireSignIn() {
     }
     denied?.classList.remove("show");
     const iface = defaultInterfaceForRole(emp.systemRole);
-    saveSession(emp.id, iface);
+    await saveSession(emp.id, iface);
     showAppScreen(emp);
   });
 }
@@ -679,6 +743,20 @@ function wireApp() {
   document.getElementById("btn-sidebar-toggle")?.addEventListener("click", toggleSidebarMobile);
   document.getElementById("sidebar-backdrop")?.addEventListener("click", closeSidebarMobile);
   document.getElementById("form-employee")?.addEventListener("submit", submitEmployeeForm);
+  document.getElementById("btn-add-date")?.addEventListener("click", () => {
+    const picker = document.getElementById("emp-date-pick");
+    const date = picker?.value;
+    if (!date) return showToast("Select a date first.", "info");
+    if (!pickedDates.includes(date)) {
+      pickedDates.push(date);
+      renderDateChips();
+    }
+    if (picker) picker.value = "";
+  });
+  document.getElementById("emp-pay-period")?.addEventListener("change", () => {
+    syncDatePickerBounds();
+    renderDateChips();
+  });
   document.getElementById("btn-add-dist")?.addEventListener("click", () => {
     document.getElementById("hour-dist-list")?.appendChild(createDistRow("Personal Day", ""));
     syncDistributionTotal();
@@ -700,6 +778,7 @@ async function init() {
   try {
     await loadState();
     state.session = { empId: null, interface: "employee" };
+    api("/api/session", { method: "PUT", body: JSON.stringify({ empId: null, interface: "employee" }) }).catch(() => {});
     fillSignInUserSelect();
     fillPayPeriodSelect();
     if (window.ManusonicUI) window.ManusonicUI.fillHrFilterOptions(state);

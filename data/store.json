@@ -4,7 +4,7 @@
   "demoData": true,
   "appName": "Hope Mission LRF",
   "session": {
-    "empId": "HRH001",
+    "empId": null,
     "interface": "employee"
   },
   "employees": [
@@ -303,8 +303,8 @@
       "shiftLength": "8 Hours",
       "reason": "Flu — resting at home.",
       "additionalNotes": "Flu — resting at home.",
-      "status": "pending",
-      "verificationStatus": "needs_review",
+      "status": "manusonic_queue",
+      "verificationStatus": "verified",
       "payStatus": "paid",
       "submittedAt": "2026-05-13T09:15:00.000Z",
       "originalSubmittedAt": "5/13/2026 9:15",
@@ -315,9 +315,9 @@
       "postedBy": null,
       "proxySubmission": false,
       "correctionsMade": false,
-      "verifiedBy": null,
-      "verifiedByName": null,
-      "verifiedAt": null,
+      "verifiedBy": "EXE001",
+      "verifiedByName": "Cameron Reid",
+      "verifiedAt": "2026-06-11T22:53:03.623Z",
       "auditTrail": [],
       "reviewMarkers": [],
       "originalSubmission": {
@@ -345,7 +345,8 @@
       },
       "supervisorSubmissionFlag": false,
       "matchedByName": false,
-      "unmatched": false
+      "unmatched": false,
+      "hours": 16
     },
     {
       "id": "MS-DEMO-002",
@@ -919,25 +920,20 @@
       "shiftLength": "8 Hours",
       "reason": "Intended leave — hours not entered on form.",
       "additionalNotes": "Intended leave — hours not entered on form.",
-      "status": "pending",
-      "verificationStatus": "needs_review",
+      "status": "manusonic_queue",
+      "verificationStatus": "verified",
       "payStatus": "paid",
       "submittedAt": "2026-06-09T14:20:00.000Z",
       "originalSubmittedAt": "6/9/2026 14:20",
-      "reviewMarkers": [
-        {
-          "code": "zero_total",
-          "hint": "Total hours is zero — please confirm"
-        }
-      ],
+      "reviewMarkers": [],
       "postedToManusonic": false,
       "postedAt": null,
       "postedBy": null,
       "proxySubmission": false,
       "correctionsMade": false,
-      "verifiedBy": null,
-      "verifiedByName": null,
-      "verifiedAt": null,
+      "verifiedBy": "EXE001",
+      "verifiedByName": "Cameron Reid",
+      "verifiedAt": "2026-06-11T22:53:33.233Z",
       "auditTrail": [],
       "originalSubmission": {
         "empId": "COX001",
@@ -959,7 +955,8 @@
       },
       "supervisorSubmissionFlag": false,
       "matchedByName": false,
-      "unmatched": false
+      "unmatched": false,
+      "hours": 0
     },
     {
       "id": "MS-DEMO-009",

@@ -87,7 +87,7 @@ function readStore() {
     parsed.requests = parsed.requests || [];
     parsed.staffImports = parsed.staffImports || [];
     const portalUser = parsed.employees.find((e) => canAccessPortal(e));
-    parsed.session = { empId: null, interface: "employee" };
+    parsed.session = parsed.session || { empId: null, interface: "employee" };
     return parsed;
   } catch {
     return applySeed();
@@ -265,6 +265,8 @@ const server = http.createServer(async (req, res) => {
         if (!emp) return sendJson(res, 400, { error: "Employee not found." });
         if (!canAccessPortal(emp)) return sendJson(res, 403, { error: NO_PORTAL_ACCESS_MSG });
         store.session.empId = body.empId;
+      } else if ("empId" in body) {
+        store.session.empId = null;
       }
       if (body.interface) store.session.interface = body.interface;
       writeStore(store);
