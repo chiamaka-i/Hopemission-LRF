@@ -777,6 +777,7 @@ async function init() {
 
   try {
     await loadState();
+    window._appState = state;
     state.session = { empId: null, interface: "employee" };
     api("/api/session", { method: "PUT", body: JSON.stringify({ empId: null, interface: "employee" }) }).catch(() => {});
     fillSignInUserSelect();

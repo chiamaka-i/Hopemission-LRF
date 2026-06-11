@@ -521,14 +521,14 @@
     const handleVerifyClick = async (e) => {
       const vid = e.target.closest("[data-verify]")?.dataset.verify;
       const vnc = e.target.closest("[data-verify-unchanged]")?.dataset.verifyUnchanged;
-      if (vid) openVerifyModal(state, vid);
+      if (vid) openVerifyModal(window._appState, vid);
       if (vnc) await verifyUnchanged(vnc, api, loadState, renderAll, showToast);
     };
     document.getElementById("manu-needs-review")?.addEventListener("click", handleVerifyClick);
     document.getElementById("manu-unmatched")?.addEventListener("click", handleVerifyClick);
 
     document.getElementById("btn-reset-demo")?.addEventListener("click", async () => {
-      if (!isAdmin(state)) return;
+      if (!isAdmin(window._appState)) return;
       if (!confirm("Restore all fictional Hope Mission demo data? Current records will be replaced.")) return;
       try {
         const res = await api("/api/seed", { method: "POST", body: "{}" });
@@ -547,7 +547,7 @@
 
     document.getElementById("verify-modal")?.addEventListener("click", async (e) => {
       if (e.target.id === "vf-save") {
-        try { await saveVerify(state, api, loadState, renderAll); showToast("Verified — moved to Pending Manusonic Entry.", "success"); }
+        try { await saveVerify(window._appState, api, loadState, renderAll); showToast("Verified — moved to Pending Manusonic Entry.", "success"); }
         catch (err) { showToast(err.message, "error"); }
       }
       if (e.target.id === "vf-cancel" || e.target.dataset.closeModal) closeVerifyModal();
@@ -556,7 +556,7 @@
     document.querySelectorAll(".hr-tab-btn").forEach((btn) => {
       btn.addEventListener("click", () => {
         hrTab = btn.dataset.hrTab;
-        renderHrTabs(state);
+        renderHrTabs(window._appState);
       });
     });
 
@@ -567,7 +567,7 @@
           "hr-f-cc": "costCentre", "hr-f-emptype": "employmentType", "hr-f-cat": "category", "hr-f-status": "status",
         };
         hrFilters[map[id]] = e.target.value;
-        renderHrTabs(state);
+        renderHrTabs(window._appState);
       });
     });
 
@@ -582,16 +582,16 @@
           const ccSel = document.getElementById("snap-f-cc");
           if (ccSel) {
             const dept = e.target.value;
-            const ccs = [...new Set(state.requests.filter((r) => !dept || r.department === dept).map((r) => r.costCentre))].sort();
+            const ccs = [...new Set(window._appState.requests.filter((r) => !dept || r.department === dept).map((r) => r.costCentre))].sort();
             ccSel.innerHTML = `<option value="">All cost centres</option>${ccs.map((c) => `<option>${esc(c)}</option>`).join("")}`;
           }
         }
-        renderHrTabs(state);
+        renderHrTabs(window._appState);
       });
     });
 
     document.getElementById("hr-snapshot-body")?.addEventListener("click", (e) => {
-      if (e.target.id === "btn-export-csv") exportSnapshotCsv(state);
+      if (e.target.id === "btn-export-csv") exportSnapshotCsv(window._appState);
       if (e.target.id === "btn-export-pdf") window.print();
     });
 
@@ -615,7 +615,7 @@
     });
 
     document.getElementById("btn-hr-apply")?.addEventListener("click", () => {
-      renderHrRequestsTable(state);
+      renderHrRequestsTable(window._appState);
     });
     document.getElementById("btn-hr-clear")?.addEventListener("click", () => {
       hrFilters = { payPeriod: "", year: "", department: "", costCentre: "", employmentType: "", category: "", status: "" };
@@ -623,11 +623,11 @@
         const el = document.getElementById(id);
         if (el) el.value = "";
       });
-      renderHrRequestsTable(state);
+      renderHrRequestsTable(window._appState);
     });
 
     document.getElementById("btn-snap-apply")?.addEventListener("click", () => {
-      renderHrSnapshot(state);
+      renderHrSnapshot(window._appState);
     });
     document.getElementById("btn-snap-clear")?.addEventListener("click", () => {
       snapshotFilters = { payPeriod: "", year: "", department: "", costCentre: "", employmentType: "" };
@@ -635,7 +635,7 @@
         const el = document.getElementById(id);
         if (el) el.value = "";
       });
-      renderHrSnapshot(state);
+      renderHrSnapshot(window._appState);
     });
   }
 
