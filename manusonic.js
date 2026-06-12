@@ -8,6 +8,7 @@
   ];
 
   let verifyTargetId = null;
+  let overrideTargetId = null;
   let hrTab = "requests";
   let hrFilters = {
     payPeriod: "", year: "", department: "", costCentre: "", employmentType: "", category: "", status: "",
@@ -61,7 +62,15 @@
     let html = "";
     if (r.proxySubmission) html += `<span class="badge badge--proxy">Proxy Submission</span> `;
     if (r.correctionsMade) html += `<span class="badge badge--corr">Corrections Made</span> `;
+    if (r.overrideApproval) html += `<span class="badge badge--override">Approved by Admin (override)</span> `;
     return html;
+  }
+
+  function daysSince(iso) {
+    if (!iso) return 0;
+    const then = new Date(iso);
+    if (isNaN(then)) return 0;
+    return Math.max(0, Math.floor((Date.now() - then.getTime()) / 86400000));
   }
 
   function formatOriginalSubmission(r) {
@@ -126,6 +135,52 @@
     return html;
   }
 
+  function formatAuditTrail(r) {
+    if (!r.auditTrail?.length) return "";
+    let html = "";
+    r.auditTrail.forEach((audit, i) => {
+      const orig = audit.originalValues || {};
+      const corr = audit.correctedValues || {};
+      const compareFields = [
+        ["Name", orig.empName ?? audit.originalEmpName, corr.empName ?? audit.correctedEmpName],
+        ["Employee ID", orig.empId ?? audit.originalEmpId, corr.empId ?? audit.correctedEmpId],
+        ["Pay Period", orig.payPeriodLabel, corr.payPeriodLabel],
+        ["Year", orig.yearOfLeave, corr.yearOfLeave],
+        ["Days", orig.dayLabels, corr.dayLabels],
+        ["Shift Length", orig.shiftLength, corr.shiftLength],
+        ["Total Hours",
+          orig.totalHours != null ? `${orig.totalHours}h` : null,
+          corr.totalHours != null ? `${corr.totalHours}h` : null],
+      ];
+      LEAVE_CATS.forEach((cat) => {
+        const o = (orig.hourDistribution || []).find((h) => h.type === cat)?.hours || 0;
+        const c = (corr.hourDistribution || []).find((h) => h.type === cat)?.hours || 0;
+        if (o !== c) compareFields.push([cat, o ? `${o}h` : "—", c ? `${c}h` : "—"]);
+      });
+      const changedRows = compareFields
+        .filter(([, o, c]) => (o != null || c != null) && String(o ?? "") !== String(c ?? ""))
+        .map(([f, o, c]) => `<tr><td style="padding:0.2rem 0.5rem">${esc(f)}</td><td style="padding:0.2rem 0.5rem">${esc(String(o ?? "—"))}</td><td style="padding:0.2rem 0.5rem">${esc(String(c ?? "—"))}</td></tr>`)
+        .join("");
+      const reason = audit.correctionReason || audit.overrideReason;
+      const by = audit.adminName || audit.approvedByName || audit.byName;
+      html += `<div class="audit-entry" style="margin-top:0.5rem">`;
+      html += `<h4 style="margin:0.4rem 0 0.2rem;font-size:0.8rem;color:var(--muted)">Correction ${i + 1}</h4>`;
+      if (changedRows) {
+        html += `<table class="data-table" style="margin:0.2rem 0"><thead><tr><th>Field</th><th>Original</th><th>Corrected</th></tr></thead><tbody>${changedRows}</tbody></table>`;
+      } else {
+        html += `<div class="meta" style="margin:0.1rem 0">No field values were changed.</div>`;
+      }
+      html += `<div class="meta" style="margin-top:0.3rem">
+        ${reason ? `<strong>Reason:</strong> ${esc(reason)}<br>` : ""}
+        ${audit.correctionNote ? `<strong>Note:</strong> ${esc(audit.correctionNote)}<br>` : ""}
+        ${audit.submittedBySupervisor ? `<strong>Originally submitted by:</strong> ${esc(audit.submittedBySupervisor)}<br>` : ""}
+        <strong>Corrected by:</strong> ${esc(by || "—")}<br>
+        <strong>At:</strong> ${esc(audit.timestamp ? new Date(audit.timestamp).toLocaleString() : "—")}
+      </div></div>`;
+    });
+    return html;
+  }
+
   function pendingCard(r, state, { showPost = false } = {}) {
     const cats = (r.hourDistribution || []).filter((h) => h.hours > 0)
       .map((h) => `${h.hours}h ${h.type}`).join(" · ");
@@ -144,7 +199,7 @@
         <div class="meta"><strong>Approved by:</strong> ${esc(r.approvedByName || "—")}</div>
         <div class="meta"><strong>Verified by:</strong> ${esc(r.verifiedByName || "—")} ${r.verifiedAt ? `(${esc(new Date(r.verifiedAt).toLocaleString())})` : ""}</div>
         ${r.additionalNotes ? `<div class="meta"><strong>Notes:</strong> ${esc(r.additionalNotes)}</div>` : ""}
-        ${r.auditTrail?.length ? `<details class="audit-details"><summary>Correction history (${r.auditTrail.length})</summary><pre class="audit-pre">${esc(JSON.stringify(r.auditTrail, null, 2))}</pre></details>` : ""}
+        ${r.auditTrail?.length ? `<details class="audit-details"><summary>Correction history (${r.auditTrail.length})</summary>${formatAuditTrail(r)}</details>` : ""}
         ${r.originalSubmission ? `<details class="audit-details"><summary>Original Submission${r.correctionsMade ? " · Corrections Made" : ""}</summary>${formatOriginalSubmission(r)}</details>` : ""}
       </div>
       ${actions ? `<div class="actions">${actions}</div>` : ""}
@@ -152,20 +207,33 @@
   }
 
   function reviewCard(r, state) {
+    const awaitingManager = r.status === "pending" && r.managerId && !r.unmatched;
+    const days = daysSince(r.submittedAt || r.originalSubmittedAt);
+    const pendingBadge = awaitingManager
+      ? `<span class="badge badge--pending">Pending manager approval — ${esc(r.managerName || "manager")}</span>`
+      : `<span class="badge badge--pending">Needs Review</span>`;
+    const aging = awaitingManager
+      ? `<div class="meta ${days > 3 ? "attention-marker" : ""}">Waiting ${days} day${days === 1 ? "" : "s"} since submitted${days > 3 ? " — over 3 days, please follow up" : ""}.</div>`
+      : "";
+    const actions = awaitingManager
+      ? `<button type="button" class="btn btn--sm" disabled title="Awaiting manager approval before verification">Edit &amp; Verify</button>
+        <button type="button" class="btn btn--ghost btn--sm" disabled title="Awaiting manager approval before verification">Verify Without Changes</button>
+        <button type="button" class="btn btn--ok btn--sm" data-override="${esc(r.id)}">Approve as Admin (override)</button>`
+      : `<button type="button" class="btn btn--sm" data-verify="${esc(r.id)}">Edit &amp; Verify</button>
+        <button type="button" class="btn btn--ghost btn--sm" data-verify-unchanged="${esc(r.id)}">Verify Without Changes</button>`;
     return `<li class="item manu-card" data-id="${esc(r.id)}">
       <div class="item-body">
         <div class="item-top"><strong>${esc(r.empName || "Unmatched")} (${esc(r.empId || "—")})</strong>
-          <span class="badge badge--pending">Needs Review</span></div>
+          ${pendingBadge} ${badgesHtml(r)}</div>
         ${r.supervisorSubmissionFlag ? `<div class="attention-banner">Supervisor or manager submission detected — please verify whether this is their own leave or a proxy submission on behalf of an absent staff member.</div>` : ""}
         ${markersHtml(r.reviewMarkers)}
+        ${aging}
         <div class="meta">Form ID: ${esc(r.formResponseId || "—")} · Submitted: ${esc(fmtTimestamp(r.originalSubmittedAt || r.submittedAt))}</div>
         <div class="meta">${esc(r.payPeriodLabel)} · ${r.totalHours}h · ${esc(r.shiftLength)}</div>
         <div class="meta">${(r.hourDistribution || []).map((h) => `${h.hours}h ${h.type}`).join(" · ")}</div>
+        ${awaitingManager ? `<div class="hint">Awaiting manager approval before verification.</div>` : ""}
       </div>
-      <div class="actions">
-        <button type="button" class="btn btn--sm" data-verify="${esc(r.id)}">Edit &amp; Verify</button>
-        <button type="button" class="btn btn--ghost btn--sm" data-verify-unchanged="${esc(r.id)}">Verify Without Changes</button>
-      </div>
+      <div class="actions">${actions}</div>
     </li>`;
   }
 
@@ -435,6 +503,50 @@
   function closeVerifyModal() {
     document.getElementById("verify-modal")?.classList.remove("show");
     verifyTargetId = null;
+    overrideTargetId = null;
+  }
+
+  function openOverrideModal(state, id) {
+    overrideTargetId = id;
+    const r = state.requests.find((x) => x.id === id);
+    if (!r) return;
+    const modal = document.getElementById("verify-modal");
+    const form = document.getElementById("verify-form");
+    if (!modal || !form) return;
+    form.innerHTML = `
+      <h3 style="margin:0 0 0.5rem">Approve as Admin (override)</h3>
+      <p style="margin:0 0 0.75rem;color:var(--muted);font-size:0.9rem">This request is awaiting approval from ${esc(r.managerName || "the manager")}.</p>
+      <div class="field"><label>Reason (required)</label><textarea id="ov-reason" rows="3" placeholder="Why are you approving this on the manager's behalf?"></textarea></div>
+      <div id="ov-error" class="attention-marker" style="display:none"></div>
+      <div class="modal-actions">
+        <button type="button" class="btn" id="ov-confirm">Approve as Admin</button>
+        <button type="button" class="btn btn--ghost" id="ov-cancel">Cancel</button>
+      </div>`;
+    modal.classList.add("show");
+  }
+
+  async function saveOverride(state, api, loadState, renderAll, showToast) {
+    const form = document.getElementById("verify-form");
+    const reason = form?.querySelector("#ov-reason")?.value?.trim();
+    if (!reason) {
+      const errEl = form?.querySelector("#ov-error");
+      if (errEl) { errEl.style.display = ""; errEl.textContent = "Please enter a reason before approving."; }
+      return;
+    }
+    const id = overrideTargetId;
+    await api(`/api/requests/${encodeURIComponent(id)}`, {
+      method: "PATCH",
+      body: JSON.stringify({
+        status: "approved",
+        overrideApproval: true,
+        overrideReason: reason,
+        managerComment: "Approved by Admin (override).",
+      }),
+    });
+    closeVerifyModal();
+    showToast("Approved as Admin.", "success");
+    await loadState();
+    renderAll();
   }
 
   async function saveVerify(state, api, loadState, renderAll) {
@@ -521,6 +633,8 @@
     const handleVerifyClick = async (e) => {
       const vid = e.target.closest("[data-verify]")?.dataset.verify;
       const vnc = e.target.closest("[data-verify-unchanged]")?.dataset.verifyUnchanged;
+      const ovr = e.target.closest("[data-override]")?.dataset.override;
+      if (ovr) return openOverrideModal(window._appState, ovr);
       if (vid) openVerifyModal(window._appState, vid);
       if (vnc) await verifyUnchanged(vnc, api, loadState, renderAll, showToast);
     };
@@ -550,7 +664,11 @@
         try { await saveVerify(window._appState, api, loadState, renderAll); showToast("Verified — moved to Pending Manusonic Entry.", "success"); }
         catch (err) { showToast(err.message, "error"); }
       }
-      if (e.target.id === "vf-cancel" || e.target.dataset.closeModal) closeVerifyModal();
+      if (e.target.id === "ov-confirm") {
+        try { await saveOverride(window._appState, api, loadState, renderAll, showToast); }
+        catch (err) { showToast(err.message, "error"); }
+      }
+      if (e.target.id === "vf-cancel" || e.target.id === "ov-cancel" || e.target.dataset.closeModal) closeVerifyModal();
     });
 
     document.querySelectorAll(".hr-tab-btn").forEach((btn) => {

@@ -579,6 +579,29 @@ const server = http.createServer(async (req, res) => {
 
       if (body.status === "approved" || body.status === "rejected") {
         const approver = sessionUser(store);
+        if (body.overrideApproval) {
+          if (!isAdminRole(approver)) {
+            return sendJson(res, 403, { error: "Approving on a manager's behalf is available to Admin only." });
+          }
+          if (!body.overrideReason || !String(body.overrideReason).trim()) {
+            return sendJson(res, 400, { error: "Please enter a reason to approve this as Admin." });
+          }
+          const ts = new Date().toISOString();
+          item.overrideApproval = {
+            reason: String(body.overrideReason).trim(),
+            adminName: approver.name,
+            adminId: approver.id,
+            timestamp: ts,
+          };
+          item.auditTrail = item.auditTrail || [];
+          item.auditTrail.push({
+            type: "override_approval",
+            overrideReason: String(body.overrideReason).trim(),
+            adminName: approver.name,
+            adminId: approver.id,
+            timestamp: ts,
+          });
+        }
         item.status = body.status === "approved" ? "approved" : "rejected";
         item.managerComment = body.managerComment || (body.status === "approved" ? "Approved." : "Rejected.");
         item.decidedAt = new Date().toISOString();
