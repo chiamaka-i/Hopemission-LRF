@@ -326,6 +326,11 @@ const server = http.createServer(async (req, res) => {
           emp.initials = (row.name || emp.name).split(" ").map((p) => p[0]).join("").slice(0, 2).toUpperCase();
           updated += 1;
         } else {
+          const title = String(row.jobRole || "");
+          const dept = String(row.department || "");
+          let autoRole = null;
+          if (/Admin (Manager|Coordinator|Assistant)/i.test(title)) autoRole = "admin";
+          else if (/\bHR\b/i.test(title) || /Human Resources/i.test(title) || /Human Resources/i.test(dept)) autoRole = "hr";
           store.employees.push({
             id: row.id,
             name: row.name,
@@ -336,7 +341,7 @@ const server = http.createServer(async (req, res) => {
             jobRole: row.jobRole,
             managerId: null,
             managerName: null,
-            systemRole: null,
+            systemRole: autoRole,
             employmentType: "",
             needsEmploymentType: true,
             skipApproval: false,

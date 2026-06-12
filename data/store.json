@@ -266,84 +266,6 @@
   ],
   "requests": [
     {
-      "id": "LRF-2026-020",
-      "source": "portal",
-      "empId": "MAN001",
-      "empName": "Jordan Mercer",
-      "initials": "JM",
-      "jobTitle": "Shelter Manager",
-      "department": "Shelters & Housing",
-      "costCentre": "7800",
-      "managerId": "EXE001",
-      "managerName": "Cameron Reid",
-      "employmentType": "RFT Salaried",
-      "leaveType": "Paid Sick Leave",
-      "leaveDates": [
-        "2026-06-11"
-      ],
-      "dayLabels": "2026-06-11",
-      "payPeriod": {
-        "start": "2026-05-21",
-        "end": "2026-06-20",
-        "label": "May 21 – June 20"
-      },
-      "payPeriodLabel": "May 21 – June 20",
-      "yearOfLeave": "2026",
-      "hourDistribution": [
-        {
-          "type": "Paid Sick Leave",
-          "hours": 10
-        }
-      ],
-      "totalHours": 10,
-      "shiftLength": "10 Hours",
-      "reason": "sick",
-      "additionalNotes": "sick",
-      "startDate": "2026-06-11",
-      "endDate": "2026-06-11",
-      "days": 1,
-      "hours": 10,
-      "status": "manusonic_queue",
-      "verificationStatus": "verified",
-      "payStatus": "paid",
-      "fttReviewFlag": false,
-      "postedToManusonic": false,
-      "postedAt": null,
-      "postedBy": null,
-      "proxySubmission": false,
-      "correctionsMade": false,
-      "submittedAt": "2026-06-11T23:40:32.584Z",
-      "originalSubmittedAt": "2026-06-11T23:40:32.584Z",
-      "managerComment": null,
-      "auditTrail": [],
-      "originalSubmission": {
-        "empId": "MAN001",
-        "empName": "Jordan Mercer",
-        "jobTitle": "Shelter Manager",
-        "department": "Shelters & Housing",
-        "costCentre": "7800",
-        "employmentType": "RFT Salaried",
-        "payPeriodLabel": "May 21 – June 20",
-        "yearOfLeave": "2026",
-        "days": 1,
-        "dayLabels": "2026-06-11",
-        "shiftLength": "10 Hours",
-        "hourDistribution": [
-          {
-            "type": "Paid Sick Leave",
-            "hours": 10
-          }
-        ],
-        "totalHours": 10,
-        "additionalNotes": "sick",
-        "submittedAt": "2026-06-11T23:40:32.584Z"
-      },
-      "reviewMarkers": [],
-      "verifiedBy": "ADM001",
-      "verifiedByName": "Morgan Price",
-      "verifiedAt": "2026-06-11T23:43:50.201Z"
-    },
-    {
       "id": "MS-DEMO-001",
       "source": "microsoft_forms",
       "formResponseId": "DEMO-001",
@@ -381,8 +303,8 @@
       "shiftLength": "8 Hours",
       "reason": "Flu — resting at home.",
       "additionalNotes": "Flu — resting at home.",
-      "status": "manusonic_queue",
-      "verificationStatus": "verified",
+      "status": "pending",
+      "verificationStatus": "needs_review",
       "payStatus": "paid",
       "submittedAt": "2026-05-13T09:15:00.000Z",
       "originalSubmittedAt": "5/13/2026 9:15",
@@ -393,9 +315,9 @@
       "postedBy": null,
       "proxySubmission": false,
       "correctionsMade": false,
-      "verifiedBy": "EXE001",
-      "verifiedByName": "Cameron Reid",
-      "verifiedAt": "2026-06-11T22:53:03.623Z",
+      "verifiedBy": null,
+      "verifiedByName": null,
+      "verifiedAt": null,
       "auditTrail": [],
       "reviewMarkers": [],
       "originalSubmission": {
@@ -423,8 +345,7 @@
       },
       "supervisorSubmissionFlag": false,
       "matchedByName": false,
-      "unmatched": false,
-      "hours": 16
+      "unmatched": false
     },
     {
       "id": "MS-DEMO-002",
@@ -998,20 +919,25 @@
       "shiftLength": "8 Hours",
       "reason": "Intended leave — hours not entered on form.",
       "additionalNotes": "Intended leave — hours not entered on form.",
-      "status": "manusonic_queue",
-      "verificationStatus": "verified",
+      "status": "approved",
+      "verificationStatus": "needs_review",
       "payStatus": "paid",
       "submittedAt": "2026-06-09T14:20:00.000Z",
       "originalSubmittedAt": "6/9/2026 14:20",
-      "reviewMarkers": [],
+      "reviewMarkers": [
+        {
+          "code": "zero_total",
+          "hint": "Total hours is zero — please confirm"
+        }
+      ],
       "postedToManusonic": false,
       "postedAt": null,
       "postedBy": null,
       "proxySubmission": false,
       "correctionsMade": false,
-      "verifiedBy": "EXE001",
-      "verifiedByName": "Cameron Reid",
-      "verifiedAt": "2026-06-11T22:53:33.233Z",
+      "verifiedBy": null,
+      "verifiedByName": null,
+      "verifiedAt": null,
       "auditTrail": [],
       "originalSubmission": {
         "empId": "COX001",
@@ -1034,7 +960,11 @@
       "supervisorSubmissionFlag": false,
       "matchedByName": false,
       "unmatched": false,
-      "hours": 0
+      "managerComment": "Approved by Admin (override).",
+      "decidedAt": "2026-06-12T00:27:03.681Z",
+      "approvedAt": "2026-06-12T00:27:03.681Z",
+      "approvedById": "ADM001",
+      "approvedByName": "Morgan Price"
     },
     {
       "id": "MS-DEMO-009",
@@ -1073,8 +1003,8 @@
       "shiftLength": "8 Hours",
       "reason": "Unknown employee ID on form.",
       "additionalNotes": "Employee ID VAL999 not found in directory.",
-      "status": "manusonic_queue",
-      "verificationStatus": "verified",
+      "status": "pending",
+      "verificationStatus": "needs_review",
       "unmatched": true,
       "payStatus": "paid",
       "submittedAt": "2026-06-11T10:00:00.000Z",
@@ -1084,11 +1014,16 @@
       "postedBy": null,
       "proxySubmission": false,
       "correctionsMade": false,
-      "verifiedBy": "ADM001",
-      "verifiedByName": "Morgan Price",
-      "verifiedAt": "2026-06-08T00:58:54.417Z",
+      "verifiedBy": null,
+      "verifiedByName": null,
+      "verifiedAt": null,
       "auditTrail": [],
-      "reviewMarkers": [],
+      "reviewMarkers": [
+        {
+          "code": "unmatched",
+          "hint": "Employee could not be matched in directory — please assign correct Employee ID"
+        }
+      ],
       "originalSubmission": {
         "empId": "VAL999",
         "empName": "Robin Vale",
@@ -1113,8 +1048,7 @@
         "submittedAt": "2026-06-11T10:00:00.000Z"
       },
       "supervisorSubmissionFlag": false,
-      "matchedByName": false,
-      "hours": 8
+      "matchedByName": false
     },
     {
       "id": "MS-DEMO-010",
@@ -1213,7 +1147,7 @@
       "managerId": "MAN002",
       "managerName": "Tessa Okonkwo",
       "employmentType": "FTT",
-      "leaveType": "Without Pay",
+      "leaveType": "Paid Sick Leave",
       "leaveDates": [
         "2026-06-04"
       ],
@@ -1228,7 +1162,7 @@
       "yearOfLeave": "2026",
       "hourDistribution": [
         {
-          "type": "Without Pay",
+          "type": "Paid Sick Leave",
           "hours": 8
         }
       ],
@@ -1236,8 +1170,8 @@
       "shiftLength": "8 Hours",
       "reason": "Medical appointment.",
       "additionalNotes": "Medical appointment.",
-      "status": "manusonic_queue",
-      "verificationStatus": "verified",
+      "status": "approved",
+      "verificationStatus": "needs_review",
       "payStatus": "without_pay",
       "fttReviewFlag": true,
       "submittedAt": "2026-06-03T11:30:00.000Z",
@@ -1246,71 +1180,17 @@
       "postedAt": null,
       "postedBy": null,
       "proxySubmission": false,
-      "correctionsMade": true,
-      "verifiedBy": "EXE001",
-      "verifiedByName": "Cameron Reid",
-      "verifiedAt": "2026-06-11T23:31:20.465Z",
-      "auditTrail": [
+      "correctionsMade": false,
+      "verifiedBy": null,
+      "verifiedByName": null,
+      "verifiedAt": null,
+      "auditTrail": [],
+      "reviewMarkers": [
         {
-          "originalEmpId": "PAT004",
-          "originalEmpName": "Jordan Patel",
-          "correctedEmpId": "PAT004",
-          "correctedEmpName": "Jordan Patel",
-          "originalValues": {
-            "empId": "PAT004",
-            "empName": "Jordan Patel",
-            "jobTitle": "Relief Program Worker",
-            "department": "Programs & Outreach",
-            "costCentre": "6900",
-            "employmentType": "FTT",
-            "payPeriodLabel": "May 21 – June 20",
-            "yearOfLeave": "2026",
-            "days": 1,
-            "dayLabels": "2026-06-04",
-            "shiftLength": "8 Hours",
-            "hourDistribution": [
-              {
-                "type": "Paid Sick Leave",
-                "hours": 8
-              }
-            ],
-            "totalHours": 8,
-            "additionalNotes": "Medical appointment.",
-            "formResponseId": "DEMO-011",
-            "submittedAt": "2026-06-03T11:30:00.000Z"
-          },
-          "correctedValues": {
-            "empId": "PAT004",
-            "empName": "Jordan Patel",
-            "payPeriodLabel": "May 21 – June 20",
-            "yearOfLeave": "2026",
-            "dayLabels": "2026-06-04",
-            "days": 1,
-            "shiftLength": "8 Hours",
-            "hourDistribution": [
-              {
-                "type": "Without Pay",
-                "hours": 8
-              }
-            ],
-            "totalHours": 8,
-            "initials": "JP",
-            "jobTitle": "Relief Program Worker",
-            "department": "Programs & Outreach",
-            "costCentre": "6900",
-            "employmentType": "FTT",
-            "managerId": "MAN002",
-            "managerName": "Tessa Okonkwo"
-          },
-          "correctionReason": "Hours split incorrectly across categories",
-          "correctionNote": "",
-          "submittedBySupervisor": "",
-          "adminName": "Cameron Reid",
-          "adminId": "EXE001",
-          "timestamp": "2026-06-11T23:31:20.465Z"
+          "code": "ftt_paid",
+          "hint": "FTT staff submitted paid leave categories — please review before posting to Manusonic"
         }
       ],
-      "reviewMarkers": [],
       "originalSubmission": {
         "empId": "PAT004",
         "empName": "Jordan Patel",
@@ -1337,7 +1217,11 @@
       "supervisorSubmissionFlag": false,
       "matchedByName": false,
       "unmatched": false,
-      "hours": 8
+      "managerComment": "Approved by Admin (override).",
+      "decidedAt": "2026-06-12T00:26:09.720Z",
+      "approvedAt": "2026-06-12T00:26:09.720Z",
+      "approvedById": "ADM001",
+      "approvedByName": "Morgan Price"
     },
     {
       "id": "MS-DEMO-012",
@@ -1421,6 +1305,6 @@
       "unmatched": false
     }
   ],
-  "nextRequestNum": 21,
+  "nextRequestNum": 20,
   "staffImports": []
 }

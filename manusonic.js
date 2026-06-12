@@ -9,6 +9,10 @@
 
   let verifyTargetId = null;
   let overrideTargetId = null;
+  let reportsMode = "requests";
+  let elrSort = { col: "totalHours", dir: "desc" };
+  let elrFilters = { from: "", to: "", department: "", costCentre: "", employmentType: "", minInstances: 0, includeNoAbsence: false };
+  let elrExpanded = {};
   let hrTab = "requests";
   let hrFilters = {
     payPeriod: "", year: "", department: "", costCentre: "", employmentType: "", category: "", status: "",
@@ -405,16 +409,20 @@
   function renderHrReports(state) {
     const el = document.getElementById("hr-reports-table");
     if (!el) return;
+    const toggle = `<div class="reports-modes" style="display:flex;gap:0.5rem;margin-bottom:0.75rem">
+      <button type="button" class="btn btn--sm ${reportsMode === "requests" ? "" : "btn--ghost"}" data-reports-mode="requests">Reports</button>
+      <button type="button" class="btn btn--sm ${reportsMode === "employee" ? "" : "btn--ghost"}" data-reports-mode="employee">Employee Leave Record</button>
+    </div>`;
+    el.innerHTML = toggle + (reportsMode === "employee" ? renderEmployeeLeaveRecord(state) : renderRequestsReport(state));
+  }
+
+  function renderRequestsReport(state) {
     const rows = filterHrRequests(state.requests);
-    if (!rows.length) {
-      el.innerHTML = '<p class="empty">No verified records found for the selected filters.</p>';
-      return;
-    }
+    if (!rows.length) return '<p class="empty">No verified records found for the selected filters.</p>';
     const cols = ["Employee Name", "Employee ID", "Department", "Cost Centre", "Job Title", "Employment Type",
       "Pay Period", "Year", "Days", "Shift Length", ...LEAVE_CATS.map((c) => `${c} hrs`), "Total Hours", "Status",
       "Proxy (Y/N)", "Corrections Made (Y/N)", "Verified By", "Verified At", "Posted to Manusonic (Y/N)", "Posted By", "Posted At"];
-
-    el.innerHTML = `<p class="verified-note">All data shown has been reviewed and verified by Admin</p>
+    return `<p class="verified-note">All data shown has been reviewed and verified by Admin</p>
       <button type="button" class="btn btn--ghost btn--sm" id="btn-reports-csv">Export CSV</button>
       <div class="table-scroll"><table class="data-table data-table--wide"><thead><tr>${cols.map((c) => `<th>${esc(c)}</th>`).join("")}</tr></thead>
       <tbody>${rows.map((r) => `<tr>
@@ -427,6 +435,179 @@
         <td>${esc(r.verifiedByName)}</td><td>${esc(r.verifiedAt)}</td>
         <td>${r.postedToManusonic ? "Y" : "N"}</td><td>${esc(r.postedBy)}</td><td>${esc(r.postedAt)}</td>
       </tr>`).join("")}</tbody></table></div>`;
+  }
+
+  function orderedPayPeriods(requests) {
+    const map = new Map();
+    requests.forEach((r) => {
+      const value = payPeriodValue(r);
+      if (!value) return;
+      if (!map.has(value)) map.set(value, { value, label: r.payPeriodLabel || value, start: r.payPeriod?.start || r.payPeriodLabel || value });
+    });
+    return [...map.values()].sort((a, b) => String(a.start).localeCompare(String(b.start)));
+  }
+
+  function buildEmployeeLeaveRecords(state) {
+    const verified = verifiedOnly(state.requests);
+    const periods = orderedPayPeriods(verified);
+    let fromIdx = periods.findIndex((p) => p.value === elrFilters.from);
+    let toIdx = periods.findIndex((p) => p.value === elrFilters.to);
+    if (fromIdx < 0 || toIdx < 0) {
+      toIdx = periods.length - 1;
+      fromIdx = Math.max(0, periods.length - 3);
+    }
+    if (fromIdx > toIdx) { const t = fromIdx; fromIdx = toIdx; toIdx = t; }
+    const inRangeValues = new Set(periods.slice(fromIdx, toIdx + 1).map((p) => p.value));
+    const inRange = verified.filter((r) => inRangeValues.has(payPeriodValue(r)));
+
+    const groups = new Map();
+    inRange.forEach((r) => {
+      if (!groups.has(r.empId)) {
+        groups.set(r.empId, {
+          empId: r.empId, empName: r.empName, department: r.department, costCentre: r.costCentre,
+          employmentType: r.employmentType, totalRequests: 0, totalHours: 0,
+          cat: Object.fromEntries(LEAVE_CATS.map((c) => [c, { count: 0, hours: 0 }])),
+          periods: new Set(), records: [], latest: r.submittedAt || "",
+        });
+      }
+      const g = groups.get(r.empId);
+      g.totalRequests += 1;
+      g.totalHours += r.totalHours || 0;
+      g.periods.add(payPeriodValue(r));
+      (r.hourDistribution || []).forEach((h) => {
+        if (g.cat[h.type] && h.hours > 0) { g.cat[h.type].hours += h.hours; g.cat[h.type].count += 1; }
+      });
+      g.records.push(r);
+      if ((r.submittedAt || "") >= g.latest) {
+        g.latest = r.submittedAt || g.latest;
+        g.empName = r.empName; g.department = r.department; g.costCentre = r.costCentre; g.employmentType = r.employmentType;
+      }
+    });
+
+    let rows = [...groups.values()].map((g) => ({ ...g, periodsCount: g.periods.size }));
+
+    if (elrFilters.includeNoAbsence) {
+      const have = new Set(rows.map((r) => r.empId));
+      state.employees.filter((e) => e.active !== false && !have.has(e.id)).forEach((e) => {
+        rows.push({
+          empId: e.id, empName: e.name, department: e.department, costCentre: e.costCentre,
+          employmentType: e.employmentType, totalRequests: 0, totalHours: 0,
+          cat: Object.fromEntries(LEAVE_CATS.map((c) => [c, { count: 0, hours: 0 }])),
+          periods: new Set(), periodsCount: 0, records: [],
+        });
+      });
+    }
+
+    rows = rows.filter((r) => {
+      if (elrFilters.department && r.department !== elrFilters.department) return false;
+      if (elrFilters.costCentre && r.costCentre !== elrFilters.costCentre) return false;
+      if (elrFilters.employmentType && r.employmentType !== elrFilters.employmentType) return false;
+      if (elrFilters.minInstances && r.totalRequests < Number(elrFilters.minInstances)) return false;
+      return true;
+    });
+
+    const dir = elrSort.dir === "asc" ? 1 : -1;
+    const key = elrSort.col;
+    const getVal = (r) => {
+      if (key.startsWith("cat:")) return r.cat[key.slice(4)]?.hours || 0;
+      if (["empName", "empId", "department", "costCentre", "employmentType"].includes(key)) return r[key] || "";
+      if (key === "totalRequests") return r.totalRequests;
+      if (key === "periodsCount") return r.periodsCount;
+      return r.totalHours;
+    };
+    rows.sort((a, b) => {
+      const va = getVal(a), vb = getVal(b);
+      if (typeof va === "string") return dir * va.localeCompare(vb);
+      return dir * (va - vb);
+    });
+
+    return { rows, periods, fromValue: periods[fromIdx]?.value || "", toValue: periods[toIdx]?.value || "" };
+  }
+
+  function sortableTh(label, key) {
+    const active = elrSort.col === key;
+    const arrow = active ? (elrSort.dir === "asc" ? " ▲" : " ▼") : "";
+    return `<th data-elr-sort="${esc(key)}" style="cursor:pointer;white-space:nowrap">${esc(label)}${arrow}</th>`;
+  }
+
+  function renderEmployeeLeaveRecord(state) {
+    const { rows, periods, fromValue, toValue } = buildEmployeeLeaveRecords(state);
+    const verified = verifiedOnly(state.requests);
+    const depts = [...new Set(verified.map((r) => r.department).filter(Boolean))].sort();
+    const ccs = [...new Set(verified.map((r) => r.costCentre).filter(Boolean))].sort();
+    const types = [...new Set(verified.map((r) => r.employmentType).filter(Boolean))].sort();
+    const opt = (val, sel) => `<option value="${esc(val)}"${val === sel ? " selected" : ""}>${esc(val)}</option>`;
+
+    const filters = `<div class="elr-filters" style="display:flex;flex-wrap:wrap;gap:0.6rem;align-items:flex-end;margin-bottom:0.75rem">
+      <div class="field"><label>From pay period</label><select id="elr-from">${periods.map((p) => `<option value="${esc(p.value)}"${p.value === fromValue ? " selected" : ""}>${esc(p.label)}</option>`).join("")}</select></div>
+      <div class="field"><label>To pay period</label><select id="elr-to">${periods.map((p) => `<option value="${esc(p.value)}"${p.value === toValue ? " selected" : ""}>${esc(p.label)}</option>`).join("")}</select></div>
+      <div class="field"><label>Department</label><select id="elr-dept"><option value="">All</option>${depts.map((d) => opt(d, elrFilters.department)).join("")}</select></div>
+      <div class="field"><label>Cost centre</label><select id="elr-cc"><option value="">All</option>${ccs.map((c) => opt(c, elrFilters.costCentre)).join("")}</select></div>
+      <div class="field"><label>Employment type</label><select id="elr-type"><option value="">All</option>${types.map((t) => opt(t, elrFilters.employmentType)).join("")}</select></div>
+      <div class="field"><label>Min. instances</label><input type="number" id="elr-min" min="0" value="${esc(elrFilters.minInstances || 0)}" style="width:6rem" /></div>
+      <label style="display:flex;align-items:center;gap:0.35rem;font-size:0.85rem"><input type="checkbox" id="elr-noabs"${elrFilters.includeNoAbsence ? " checked" : ""} /> Include staff with no absences</label>
+      <button type="button" class="btn btn--ghost btn--sm" id="btn-reports-csv">Export CSV</button>
+    </div>`;
+
+    const headers = [
+      sortableTh("Employee Name", "empName"), sortableTh("Employee ID", "empId"),
+      sortableTh("Department", "department"), sortableTh("Cost Centre", "costCentre"),
+      sortableTh("Employment Type", "employmentType"), sortableTh("Total Requests", "totalRequests"),
+      sortableTh("Paid Sick Leave", "cat:Paid Sick Leave"), sortableTh("Without Pay", "cat:Without Pay"),
+      sortableTh("Personal Day hrs", "cat:Personal Day"), sortableTh("Vacation hrs", "cat:Vacation"),
+      sortableTh("OT Banked hrs", "cat:OT Banked"), sortableTh("Bereavement hrs", "cat:Bereavement"),
+      sortableTh("Compassionate Care hrs", "cat:Compassionate Care"), sortableTh("Total Hours", "totalHours"),
+      sortableTh("Pay Periods with Absences", "periodsCount"),
+    ].join("");
+
+    const body = rows.length ? rows.map((r) => {
+      const main = `<tr class="elr-row" data-elr-expand="${esc(r.empId)}" style="cursor:pointer">
+        <td>${esc(r.empName)}</td><td>${esc(r.empId)}</td><td>${esc(r.department)}</td><td>${esc(r.costCentre)}</td>
+        <td>${esc(r.employmentType)}</td><td>${r.totalRequests}</td>
+        <td>${r.cat["Paid Sick Leave"].count} · ${r.cat["Paid Sick Leave"].hours}h</td>
+        <td>${r.cat["Without Pay"].count} · ${r.cat["Without Pay"].hours}h</td>
+        <td>${r.cat["Personal Day"].hours}</td><td>${r.cat["Vacation"].hours}</td>
+        <td>${r.cat["OT Banked"].hours}</td><td>${r.cat["Bereavement"].hours}</td>
+        <td>${r.cat["Compassionate Care"].hours}</td><td>${r.totalHours}</td><td>${r.periodsCount}</td>
+      </tr>`;
+      const detail = elrExpanded[r.empId] ? `<tr class="elr-detail"><td colspan="15" style="background:var(--panel-2)">
+        ${r.records.length ? r.records.map((rec) => `<div class="meta" style="padding:0.25rem 0">
+          <strong>${esc(rec.payPeriodLabel)}</strong> · ${esc((rec.hourDistribution || []).map((h) => `${h.hours}h ${h.type}`).join(" · "))} · ${rec.totalHours}h · ${rec.postedToManusonic ? "Posted" : "Verified"}
+          · <span class="text-muted">at time of leave: ${esc(rec.employmentType)} · CC ${esc(rec.costCentre)} · Manager ${esc(rec.managerName || "—")}</span>
+        </div>`).join("") : '<div class="meta">No leave records in this range.</div>'}
+      </td></tr>` : "";
+      return main + detail;
+    }).join("") : `<tr><td colspan="15" class="empty">No employees match these filters.</td></tr>`;
+
+    return `${filters}
+      <div class="table-scroll"><table class="data-table data-table--wide"><thead><tr>${headers}</tr></thead><tbody>${body}</tbody></table></div>
+      <p style="margin-top:0.5rem;color:var(--muted);font-size:0.85rem">For operational review.</p>`;
+  }
+
+  function exportReportsCsv(state) {
+    if (reportsMode === "employee") {
+      const { rows } = buildEmployeeLeaveRecords(state);
+      const header = ["Employee Name", "Employee ID", "Department", "Cost Centre", "Employment Type", "Total Requests",
+        "Paid Sick Leave Count", "Paid Sick Leave Hours", "Without Pay Count", "Without Pay Hours",
+        "Personal Day Hours", "Vacation Hours", "OT Banked Hours", "Bereavement Hours", "Compassionate Care Hours",
+        "Total Hours", "Pay Periods with Absences"];
+      const data = [header, ...rows.map((r) => [r.empName, r.empId, r.department, r.costCentre, r.employmentType, r.totalRequests,
+        r.cat["Paid Sick Leave"].count, r.cat["Paid Sick Leave"].hours, r.cat["Without Pay"].count, r.cat["Without Pay"].hours,
+        r.cat["Personal Day"].hours, r.cat["Vacation"].hours, r.cat["OT Banked"].hours, r.cat["Bereavement"].hours, r.cat["Compassionate Care"].hours,
+        r.totalHours, r.periodsCount])];
+      const name = ["EmployeeLeaveRecord", elrFilters.department || "AllDepts", elrFilters.costCentre || "AllCC", elrFilters.employmentType || "AllTypes"]
+        .join("_").replace(/\s+/g, "") + ".csv";
+      downloadCsv(data, name);
+    } else {
+      const rows = filterHrRequests(state.requests);
+      const header = ["Employee Name", "Employee ID", "Department", "Cost Centre", "Job Title", "Employment Type", "Pay Period", "Year", "Days", "Shift Length",
+        ...LEAVE_CATS.map((c) => `${c} hrs`), "Total Hours", "Status", "Proxy", "Corrections Made", "Verified By", "Verified At", "Posted", "Posted By", "Posted At"];
+      const data = [header, ...rows.map((r) => [r.empName, r.empId, r.department, r.costCentre, r.jobTitle, r.employmentType, r.payPeriodLabel, r.yearOfLeave, r.dayLabels || r.days, r.shiftLength,
+        ...LEAVE_CATS.map((c) => hoursForCategory(r, c)), r.totalHours, r.postedToManusonic ? "Posted" : "Verified", r.proxySubmission ? "Y" : "N", r.correctionsMade ? "Y" : "N",
+        r.verifiedByName || "", r.verifiedAt || "", r.postedToManusonic ? "Y" : "N", r.postedBy || "", r.postedAt || ""])];
+      const name = ["Reports", hrFilters.department || "AllDepts", hrFilters.costCentre || "AllCC"].join("_").replace(/\s+/g, "") + ".csv";
+      downloadCsv(data, name);
+    }
   }
 
   function openVerifyModal(state, id) {
@@ -711,6 +892,43 @@
     document.getElementById("hr-snapshot-body")?.addEventListener("click", (e) => {
       if (e.target.id === "btn-export-csv") exportSnapshotCsv(window._appState);
       if (e.target.id === "btn-export-pdf") window.print();
+    });
+
+    const reportsEl = document.getElementById("hr-reports-table");
+    reportsEl?.addEventListener("click", (e) => {
+      const modeBtn = e.target.closest("[data-reports-mode]");
+      if (modeBtn) { reportsMode = modeBtn.dataset.reportsMode; renderHrReports(window._appState); return; }
+      if (e.target.id === "btn-reports-csv") { exportReportsCsv(window._appState); return; }
+      const sortTh = e.target.closest("[data-elr-sort]");
+      if (sortTh) {
+        const col = sortTh.dataset.elrSort;
+        if (elrSort.col === col) {
+          elrSort.dir = elrSort.dir === "asc" ? "desc" : "asc";
+        } else {
+          elrSort.col = col;
+          elrSort.dir = ["empName", "empId", "department", "costCentre", "employmentType"].includes(col) ? "asc" : "desc";
+        }
+        renderHrReports(window._appState);
+        return;
+      }
+      const row = e.target.closest("[data-elr-expand]");
+      if (row) {
+        const id = row.dataset.elrExpand;
+        elrExpanded[id] = !elrExpanded[id];
+        renderHrReports(window._appState);
+      }
+    });
+    reportsEl?.addEventListener("change", (e) => {
+      const id = e.target.id;
+      if (id === "elr-from") elrFilters.from = e.target.value;
+      else if (id === "elr-to") elrFilters.to = e.target.value;
+      else if (id === "elr-dept") elrFilters.department = e.target.value;
+      else if (id === "elr-cc") elrFilters.costCentre = e.target.value;
+      else if (id === "elr-type") elrFilters.employmentType = e.target.value;
+      else if (id === "elr-min") elrFilters.minInstances = Number(e.target.value) || 0;
+      else if (id === "elr-noabs") elrFilters.includeNoAbsence = e.target.checked;
+      else return;
+      renderHrReports(window._appState);
     });
 
     document.getElementById("btn-staff-import")?.addEventListener("click", () => {
